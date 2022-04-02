@@ -28,6 +28,7 @@ DynamixelController::DynamixelController()
    wheel_radius_(0.0f),
    is_moving_(false)
 {
+  move_ = false;
   is_joint_state_topic_ = priv_node_handle_.param<bool>("use_joint_states_topic", true);
   is_cmd_vel_topic_ = priv_node_handle_.param<bool>("use_cmd_vel_topic", false);
   use_moveit_ = priv_node_handle_.param<bool>("use_moveit", false);
@@ -332,6 +333,7 @@ void DynamixelController::initSubscriber()
 void DynamixelController::initServer()
 {
   dynamixel_command_server_ = priv_node_handle_.advertiseService("dynamixel_command", &DynamixelController::dynamixelCommandMsgCallback, this);
+  dynamixel_command_wait_server_ = priv_node_handle_.advertiseService("dynamixel_command_wait", &DynamixelController::dynamixelCommandMsgWaitCallback, this);
 }
 
 void DynamixelController::readCallback(const ros::TimerEvent&)
@@ -740,6 +742,15 @@ void DynamixelController::trajectoryMsgCallback(const trajectory_msgs::JointTraj
   }
 }
 
+bool DynamixelController::dynamixelCommandMsgWaitCallback(dynamixel_workbench_msgs::DynamixelCommand::Request &req,
+                                                      dynamixel_workbench_msgs::DynamixelCommand::Response &res)
+{
+  res.comm_result = true;
+  move_ = true;
+  req_ = req;
+  return true;
+}
+
 bool DynamixelController::dynamixelCommandMsgCallback(dynamixel_workbench_msgs::DynamixelCommand::Request &req,
                                                       dynamixel_workbench_msgs::DynamixelCommand::Response &res)
 {
@@ -760,6 +771,40 @@ bool DynamixelController::dynamixelCommandMsgCallback(dynamixel_workbench_msgs::
   res.comm_result = result;
 
   return true;
+}
+
+void DynamixelController::dynamixelCommandMove(dynamixel_workbench_msgs::DynamixelCommand::Request &req) {
+  ros::Duration(0.5).sleep();
+  bool result = false;
+  const char* log;
+
+  uint8_t id = req.id;
+  std::string item_name = req.addr_name;
+  int32_t value = req.value;
+
+  int32_t current = dynamixel_state_list_.dynamixel_state[0].present_position;
+  int delta = 5;
+  std::cout << current << std::endl;
+
+  int32_t intermediate_value;
+  while (value < current - delta or value > current + delta) {
+    if (value < current) {
+      intermediate_value = current - 10;
+    }
+    else {
+      intermediate_value = current + 10;
+    }
+    result = dxl_wb_->itemWrite(id, item_name.c_str(), intermediate_value, &log);
+    if (result == false) {
+        ROS_ERROR("%s", log);
+        ROS_ERROR("Failed to write value[%d] on items[%s] to Dynamixel[ID : %d]", value, item_name.c_str(), id);
+    }
+    current = dynamixel_state_list_.dynamixel_state[0].present_position;
+    std::cout << current << std::endl;
+    ros::spinOnce();
+    ros::Duration(0.001).sleep();
+  }
+  move_ = false;
 }
 
 int main(int argc, char **argv)
@@ -837,7 +882,13 @@ int main(int argc, char **argv)
   ros::Timer write_timer = node_handle.createTimer(ros::Duration(dynamixel_controller.getWritePeriod()), &DynamixelController::writeCallback, &dynamixel_controller);
   ros::Timer publish_timer = node_handle.createTimer(ros::Duration(dynamixel_controller.getPublishPeriod()), &DynamixelController::publishCallback, &dynamixel_controller);
 
-  ros::spin();
+  // ros::spin();
+  while (ros::ok()) {
+    if (dynamixel_controller.move_) {
+      dynamixel_controller.dynamixelCommandMove(dynamixel_controller.req_);
+    }
+    ros::spinOnce();
+  }
 
   return 0;
 }

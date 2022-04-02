@@ -68,6 +68,7 @@ class DynamixelController
 
   // ROS Service Server
   ros::ServiceServer dynamixel_command_server_;
+  ros::ServiceServer dynamixel_command_wait_server_;
 
   // ROS Service Client
 
@@ -109,6 +110,9 @@ class DynamixelController
   bool initSDKHandlers(void);
   bool getPresentPosition(std::vector<std::string> dxl_name);
 
+  bool move_;
+  dynamixel_workbench_msgs::DynamixelCommand::Request req_;
+
   double getReadPeriod(){return read_period_;}
   double getWritePeriod(){return write_period_;}
   double getPublishPeriod(){return pub_period_;}
@@ -126,6 +130,9 @@ class DynamixelController
   void trajectoryMsgCallback(const trajectory_msgs::JointTrajectory::ConstPtr &msg);
   bool dynamixelCommandMsgCallback(dynamixel_workbench_msgs::DynamixelCommand::Request &req,
                                    dynamixel_workbench_msgs::DynamixelCommand::Response &res);
+  bool dynamixelCommandMsgWaitCallback(dynamixel_workbench_msgs::DynamixelCommand::Request &req,
+                                   dynamixel_workbench_msgs::DynamixelCommand::Response &res);
+  void dynamixelCommandMove(dynamixel_workbench_msgs::DynamixelCommand::Request &req);
 };
 
 #endif //DYNAMIXEL_WORKBENCH_CONTROLLERS_H
