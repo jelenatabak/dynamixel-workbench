@@ -783,27 +783,35 @@ void DynamixelController::dynamixelCommandMove(dynamixel_workbench_msgs::Dynamix
   int32_t value = req.value;
 
   int32_t current = dynamixel_state_list_.dynamixel_state[0].present_position;
-  int delta = 5;
-  std::cout << current << std::endl;
+  int step;
+  priv_node_handle_.getParam("/robosoft/dynamixel_step", step);
 
+  float sleep_time;
+  priv_node_handle_.getParam("/robosoft/dynamixel_sleep_time", sleep_time);
   int32_t intermediate_value;
-  while (value < current - delta or value > current + delta) {
+  while (value < current - step or value > current + step) {
     if (value < current) {
-      intermediate_value = current - 10;
+      intermediate_value = current - step;
     }
     else {
-      intermediate_value = current + 10;
+      intermediate_value = current + step;
     }
     result = dxl_wb_->itemWrite(id, item_name.c_str(), intermediate_value, &log);
     if (result == false) {
         ROS_ERROR("%s", log);
         ROS_ERROR("Failed to write value[%d] on items[%s] to Dynamixel[ID : %d]", value, item_name.c_str(), id);
     }
+    ros::spinOnce();
+    ros::Duration(sleep_time).sleep();
     current = dynamixel_state_list_.dynamixel_state[0].present_position;
     std::cout << current << std::endl;
-    ros::spinOnce();
-    ros::Duration(0.001).sleep();
   }
+  result = dxl_wb_->itemWrite(id, item_name.c_str(), value, &log);
+  if (result == false) {
+      ROS_ERROR("%s", log);
+      ROS_ERROR("Failed to write value[%d] on items[%s] to Dynamixel[ID : %d]", value, item_name.c_str(), id);
+  }
+
   move_ = false;
 }
 
