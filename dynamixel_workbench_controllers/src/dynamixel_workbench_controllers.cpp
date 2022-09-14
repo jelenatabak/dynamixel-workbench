@@ -783,11 +783,11 @@ void DynamixelController::dynamixelCommandMove(dynamixel_workbench_msgs::Dynamix
   int32_t value = req.value;
 
   int32_t current = dynamixel_state_list_.dynamixel_state[0].present_position;
-  int step;
-  priv_node_handle_.getParam("/robosoft/dynamixel_step", step);
+  int step = 10;
+  //priv_node_handle_.getParam("/robosoft/dynamixel_step", step);
 
-  float sleep_time;
-  priv_node_handle_.getParam("/robosoft/dynamixel_sleep_time", sleep_time);
+  float sleep_time = 0.0001;
+  //priv_node_handle_.getParam("/robosoft/dynamixel_sleep_time", sleep_time);
   int32_t intermediate_value;
   while (value < current - step or value > current + step) {
     if (value < current) {
